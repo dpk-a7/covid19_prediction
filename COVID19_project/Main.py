@@ -7,9 +7,10 @@ from NORMAL_PREDICT import model_N
 import telebot
 from telebot import types
 import time
+import os
 
 
-chat_token = "<chat bot token>"
+chat_token = "<TOKEN>"
 
 bot = telebot.TeleBot(chat_token)
 
@@ -399,7 +400,10 @@ def process_smellProb_step(message):
         smellProb = message.text
         user = user_dict[chat_id]
         if (smellProb == u'Yes') or (smellProb == u'No'):
-            user.smellProb = smellProb
+            if smellProb == u'Yes':
+                user.smellProb = 'No'
+            else:
+                user.smellProb = 'Yes'
         else:
             raise Exception
         markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
@@ -572,3 +576,8 @@ bot.enable_save_next_step_handlers(delay=2)
 bot.load_next_step_handlers()
 
 bot.polling()
+
+if os.path.exists(".handler-saves/step.save"):
+  os.remove(".handler-saves/step.save")
+else:
+    pass
