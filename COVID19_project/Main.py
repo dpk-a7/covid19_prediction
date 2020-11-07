@@ -1,4 +1,5 @@
 
+
 from COLD_PREDICT import model_C
 from FLU_PREDICT import model_Fl
 from FEVER_PREDICT import model_F
@@ -9,6 +10,13 @@ from telebot import types
 import time
 import os
 import random
+import pickle
+import datetime
+import pandas as pd
+import numpy as np
+from csv import writer
+
+dic = {}
 
 chat_token = "1427454496:AAFCCGEmBayVKwmn2jWHKGIAd2e9ZpkerBA"
 
@@ -42,8 +50,9 @@ ag = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
       74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89,
       90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104]
 class User:
-    def __init__(self,name):
-        self.name = name
+    def __init__(self):
+        self.name = None
+        self.place = None
         self.age = None
         self.Btemp = None
         self.outside = None
@@ -68,13 +77,36 @@ class User:
 def welcome(message):
     chat_id = message.chat.id
     bot.send_message(chat_id,"""\
+          *Important Note*
+=====================================
+This chat-bot follows fixed syntax!
+• Type only when it's your name, place, age, temperature reading.
+• This chat-bot is specific with name, place, age, temperature reading.
+• For all remaining questionnaire options will be provided you don't need to implicitly type!
+• If options didn't show up then go back and re-enter the COVID-19 Prediction chat-bot.
+=====================================
+    """,parse_mode='Markdown')
+    time.sleep(1)
+    bot.send_message(chat_id,"""\
 Hi there, I'm Predictor19_bot!
 """)
     time.sleep(1)
     bot.send_message(chat_id, "😇")
     msg = bot.send_message(chat_id, "What is your name?")
     bot.register_next_step_handler(msg,greet)
-    
+@bot.message_handler(commands = ['help'])
+def helpc(message):
+    chat_id = message.chat.id
+    bot.send_message(chat_id,"""\
+1) Thermometer has become a necessity in this pandemic, here is the link to buy one:
+https://rb.gy/ci1dci </br>
+2) If you got Backend error: you can start your test by Texting 'Clear' or 'clear' to this chat!
+        or clear your chat history and /start.
+Else write to blueoceanai.tech@gmail.com
+Our team will respond to you shortly.
+
+Click this ==> /start
+""")   
    
     
     
@@ -104,45 +136,71 @@ def greet(message):
             bot.register_next_step_handler(msg,greet)
             return
         else:
-            global user
-            user = User(name)
+            global user           
+            user.name = name
             bot.send_message(chat_id, 'Nice to meet you ' + user.name)
             #msg = bot.send_message(chat_id, 'To start your test type /test!')
-            test(message)
-    
-    
+            markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+            markup.add('Rename','No')
+            bot.send_message(chat_id,"Do you want to change name?",reply_markup=markup)
+            bot.register_next_step_handler(message,process_place_step)
+
+def process_place_step(message):
+    try:
+        chat_id = message.chat.id
+        if message.text == u'rename' or  message.text == u'Rename':
+            bot.send_message(chat_id,'Okay no problem 😄')
+            msg = bot.send_message(chat_id, 'What is your name?')
+            bot.register_next_step_handler(msg,greet)
+            return
+        elif message.text == u'no' or message.text == u'No':
+            time.sleep(1)
+            bot.send_message(chat_id,"Which street do you live in {}?".format(user.name))
+            bot.register_next_step_handler(message,place)
+            
+    except Exception as e:
+        bot.send_message(chat_id, """Ooops, Backend error!\
+Please write to blueoceanai.tech@gmail.com
+Our team will respond to you.""")
+
+def place(message):
+    try:
+        place = message.text
+        user.place = place
+        chat_id = message.chat.id
+        markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
+        markup.add('Yes','No')
+        msg = bot.send_message(chat_id, 'Do you want to change your street name {}?'.format(user.name),reply_markup=markup)
+        bot.register_next_step_handler(message,test)
+    except Exception as e:
+        bot.send_message(chat_id, """Ooops, Backend error!\
+Please write to blueoceanai.tech@gmail.com
+Our team will respond to you.""")
 
 def test(message):
     chat_id = message.chat.id
+    
     if  message.text == u'clear' or  message.text == u'Clear':
         restart(chat_id)
         time.sleep(1)
         welcome(message)
-    else:
+    if message.text == u'Yes':
+            bot.send_message(chat_id,'Okay no problem 😄')
+            msg = bot.send_message(chat_id, "Which street do you live in {}?".format(user.name))
+            bot.register_next_step_handler(msg,place)  
+    elif message.text == u'No':
         chat_id = message.chat.id
         msg = bot.send_message(chat_id,"Hey " + user.name + " if you have thermometer keep it ready for this test! 😄")
         bot.send_message(chat_id," If you face any problem, please type /help")
         time.sleep(1)
         markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
-        markup.add('Rename', 'Start Test!')
+        markup.add('Back', 'Start Test!')
         msg = bot.send_message(chat_id, 'Hope your result is normal ' + user.name , reply_markup=markup) 
         bot.send_message(chat_id,'😊')
         bot.register_next_step_handler(msg,process_name_step)
    
     
-@bot.message_handler(commands = ['help'])
-def helpc(message):
-    chat_id = message.chat.id
-    bot.send_message(chat_id,"""\
-1) Thermometer has become a necessity in this pandemic, here is the link to buy one:
-https://rb.gy/ci1dci </br>
-2) If you got Backend error: you can start your test by Texting 'Clear' or 'clear' to this chat!
-        or clear your chat history and /start.
-Else write to blueoceanai.tech@gmail.com
-Our team will respond to you shortly.
 
-Click this ==> /start
-""")
     
     #bot.register_next_step_handler(msg,process_name_step)
     
@@ -153,14 +211,13 @@ def process_name_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'rename' or  message.text == u'Rename':
+        elif message.text == u'back' or  message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
-            msg = bot.send_message(chat_id, 'What is your name?')
-            bot.register_next_step_handler(msg,greet)
+            msg = bot.send_message(chat_id, "Which street do you live in {}?".format(user.name))
+            bot.register_next_step_handler(msg,place)
             return
         else:
-            name = message.text
-            user = User(name)
+            
             time.sleep(1)
             st = message.text
             if st == u'Start Test!':
@@ -185,7 +242,7 @@ def ages(message):
         age_ = message
         
         markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-        markup.add('Retry', 'Continue')
+        markup.add('Back', 'Continue')
         bot.send_message(chat_id,'Okay',reply_markup=markup)
         bot.register_next_step_handler(age_, process_age_step)
         #process_age_step(message)
@@ -198,7 +255,7 @@ Our team will respond to you.""")
 def process_age_step(message): 
     try:
         chat_id = message.chat.id
-        if message.text == u'retry' or  message.text == u'Retry':
+        if message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             msg = bot.send_message(chat_id, 'How old are you?')
             bot.register_next_step_handler(msg,ages)
@@ -210,14 +267,14 @@ def process_age_step(message):
         else:
             age = age_.text
             if age.isdigit() == False:
-                msg = bot.send_message(chat_id,"1 Invalid! How old are you?")
-                bot.register_next_step_handler(msg,process_age_step)
+                msg = bot.send_message(chat_id,"Invalid! How old are you?")
+                bot.register_next_step_handler(msg,ages)
                 return
             elif int(age) not in ag:
-                msg = bot.send_message(chat_id,"2 Invalid! How old are you?")
-                bot.register_next_step_handler(msg,process_age_step)
+                msg = bot.send_message(chat_id,"Invalid! How old are you?")
+                bot.register_next_step_handler(msg,ages)
                 return
-            #elif message.text == u'retry' or  message.text == u'Retry':
+            #elif message.text == u'Back':
              #   bot.send_message(chat_id,'Okay no problem 😄')
               #  msg = bot.send_message(chat_id, 'How old are you?')
                # bot.register_next_step_handler(msg,ages)
@@ -228,7 +285,7 @@ def process_age_step(message):
                     user.age = int(age)
                     
                     markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-                    markup.add('fahrenheit','celcius','Touching the forehead (not recommended!)', 'Clear')
+                    markup.add('fahrenheit','celsius','Touching forehead (not recommended!)', 'Clear')
                     bot.send_message(chat_id,"Select any one.",reply_markup=markup)
                     bot.register_next_step_handler(message,process_Btemp_step)
     except Exception as e:
@@ -246,22 +303,22 @@ def process_Btemp_step(message):
         else:
             #Btemp = message.text
             
-            if message.text == u'celcius':
-                msg = bot.send_message(chat_id, "What is your body temprature in celcius?")
+            if message.text == u'celsius':
+                msg = bot.send_message(chat_id, "What is your body temprature in celsius?")
                 bot.register_next_step_handler(msg,body_temp_c)
                 
-            elif message.text == u'Touching the forehead (not recommended!)':
+            elif message.text == u'Touching forehead (not recommended!)':
                 markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-                markup.add('Head feels warm', 'Retry', "It's normal")
+                markup.add('Head feels warm', 'Back', "It's normal")
                 msg = bot.send_message(chat_id,"Touching a person's forehead with the back of the hand is a common method of telling whether or not they have a fever.",reply_markup=markup)
                 bot.register_next_step_handler(msg,body_temp_t)
             elif message.text == u'fahrenheit':
                 msg = bot.send_message(chat_id, "What is your body temprature in fahrenheit?")
                 bot.register_next_step_handler(msg,body_temp_f)
-            elif message.text == u'retry' or  message.text == u'Retry':
+            elif message.text == u'Back':
                 bot.send_message(chat_id,'Okay no problem 😄')
                 markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-                markup.add('fahrenheit','celcius','Touching the forehead (not recommended!)')
+                markup.add('fahrenheit','celsius','Touching forehead (not recommended!)')
                 bot.send_message(chat_id,"Select any one measure.",reply_markup=markup)
                 bot.register_next_step_handler(message,process_Btemp_step)
                 return
@@ -275,15 +332,15 @@ def body_temp_c(message):
      try:
         chat_id = message.chat.id
         Btemp = message.text
-        if Btemp == u'retry' or  Btemp == u'Retry':
+        if Btemp == u'Back' or  Btemp == u'Back':
                 bot.send_message(chat_id,'Okay no problem 😄')
                 markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-                markup.add('fahrenheit','celcius','Touching the forehead (not recommended!)')
+                markup.add('fahrenheit','celsius','Touching forehead (not recommended!)')
                 bot.send_message(chat_id,"Select any one measure.",reply_markup=markup)
                 bot.register_next_step_handler(message,process_Btemp_step)
                 return
         elif int(Btemp) not in [35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45]:
-            msg = bot.send_message(chat_id,"Body Temperature must be range(35 to 45)celcius!")
+            msg = bot.send_message(chat_id,"Body Temperature must be range(35 to 45)celsius!")
             bot.register_next_step_handler(msg,body_temp_c)
             return
         else:
@@ -291,7 +348,7 @@ def body_temp_c(message):
             user = user_dict[chat_id]
             user.Btemp = float(Btempe)
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id,"Have you visited any public place within this month?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_outside_step)
      except Exception as e:
@@ -303,10 +360,10 @@ def body_temp_f(message):
      try:
         chat_id = message.chat.id
         Btemp = message.text
-        if Btemp == u'retry' or  Btemp == u'Retry':
+        if Btemp == u'Back' or  Btemp == u'Back':
                 bot.send_message(chat_id,'Okay no problem 😄')
                 markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-                markup.add('fahrenheit','celcius','Touching the forehead (not recommended!)')
+                markup.add('fahrenheit','celsius','Touching forehead (not recommended!)')
                 bot.send_message(chat_id,"Select any one measure.",reply_markup=markup)
                 bot.register_next_step_handler(message,process_Btemp_step)
                 return
@@ -318,7 +375,7 @@ def body_temp_f(message):
             user = user_dict[chat_id]
             user.Btemp = float(Btemp)
         markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-        markup.add('Yes', 'Clear', 'No', 'Retry')
+        markup.add('Yes', 'Clear', 'No', 'Back')
         msg = bot.send_message(chat_id,"Have you visited any public place within this month?",reply_markup=markup)
         bot.register_next_step_handler(msg,process_outside_step)
      except Exception as e:
@@ -329,18 +386,18 @@ def body_temp_t(message):
      try:
         chat_id = message.chat.id
         Btemp = message.text
-        if Btemp == u'retry' or  Btemp == u'Retry':
+        if Btemp == u'Back' or  Btemp == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('fahrenheit','celcius','Touching the forehead (not recommended!)')
+            markup.add('fahrenheit','celsius','Touching forehead (not recommended!)')
             bot.send_message(chat_id,"Select any one measure.",reply_markup=markup)
             bot.register_next_step_handler(message,process_Btemp_step)
             return
         else:
-            if Btemp == u'retry' or  Btemp == u'Retry':
+            if Btemp == u'Back' or  Btemp == u'Back':
                 bot.send_message(chat_id,'Okay no problem 😄')
                 markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-                markup.add('Head feels warm', 'Retry', "It's normal")
+                markup.add('Head feels warm', 'Back', "It's normal")
                 msg = bot.send_message(chat_id,"Touching a person's forehead with the back of the hand is a common method of telling whether or not they have a fever.",reply_markup=markup)
                 bot.register_next_step_handler(msg,body_temp_t)
                 return
@@ -355,7 +412,7 @@ def body_temp_t(message):
                 user.Btemp = float(x)
             
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id,"Have you visited any public place within this month?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_outside_step)
      except Exception as e:
@@ -373,10 +430,10 @@ def process_outside_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif Btemp == u'retry' or  Btemp == u'Retry':
+        elif Btemp == u'Back' or  Btemp == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('fahrenheit','celcius','Touching the forehead (not recommended!)')
+            markup.add('fahrenheit','celsius','Touching forehead (not recommended!)')
             bot.send_message(chat_id,"Select any one measure.",reply_markup=markup)
             bot.register_next_step_handler(message,process_Btemp_step)
             return
@@ -388,7 +445,7 @@ def process_outside_step(message):
             else:
                 raise Exception()
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id,"Do you Cough?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_cough_step)
             
@@ -405,10 +462,10 @@ def process_cough_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif Btemp == u'retry' or  Btemp == u'Retry':
+        elif Btemp == u'Back' or  Btemp == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id,"Have you visited any public place within this month?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_outside_step)
             return
@@ -420,8 +477,11 @@ def process_cough_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
-            msg = bot.send_message(chat_id,"Do you have Phlegm?",reply_markup=markup)
+            markup.add('Yes', 'Clear', 'No', 'Back')
+            msg = bot.send_message(chat_id,"Do you have Phlegm?\
+                                   \
+                                \
+(Phlegm is a type of mucus produced in the lungs and lower respiratory tract.)",reply_markup=markup)
             bot.register_next_step_handler(msg,process_phlegm_step)
     except Exception as e:
         bot.send_message(chat_id, """Ooops, Backend error!\
@@ -435,22 +495,25 @@ def process_phlegm_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id, 'Do you Cough?',reply_markup=markup)
             bot.register_next_step_handler(msg,process_cough_step)
             return
         else:
             phlegm = message.text
             user = user_dict[chat_id]
-            if (phlegm == u'Yes') or (phlegm == u'No') or (phlegm == u'retry') or  (phlegm == u'Retry'):
-                if message.text == u'retry' or  message.text == u'Retry':
+            if (phlegm == u'Yes') or (phlegm == u'No') or (phlegm == u'Back') or  (phlegm == u'Back'):
+                if message.text == u'Back':
                     bot.send_message(chat_id,'Okay no problem 😄')
                     markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-                    markup.add('Yes', 'Clear', 'No', 'Retry')
-                    msg = bot.send_message(chat_id, 'Do you have Phlegm?',reply_markup=markup)
+                    markup.add('Yes', 'Clear', 'No', 'Back')
+                    msg = bot.send_message(chat_id,"Do you have Phlegm?\
+                                               \
+                                           \
+(Phlegm is a type of mucus produced in the lungs and lower respiratory tract.)",reply_markup=markup)
                     bot.register_next_step_handler(msg,process_phlegm_step)
                     return
                 else:
@@ -458,8 +521,11 @@ def process_phlegm_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
-            msg = bot.send_message(chat_id,"Do you feel chillness?",reply_markup=markup)
+            markup.add('Yes', 'Clear', 'No', 'Back')
+            msg = bot.send_message(chat_id,"Do you feel chillness?\
+                                   \
+                                       \
+(A sensation of coldness, often accompanied by shivering and pallor of the skin.)",reply_markup=markup)
             bot.register_next_step_handler(msg,process_chillness_step)
     except Exception as e:
         bot.send_message(chat_id, """Ooops, Backend error!\
@@ -473,11 +539,14 @@ def process_chillness_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
-            msg = bot.send_message(chat_id, 'Do you have Phlegm?',reply_markup=markup)
+            markup.add('Yes', 'Clear', 'No', 'Back')
+            msg = bot.send_message(chat_id,"Do you have Phlegm?\
+                                               \
+                                           \
+(Phlegm is a type of mucus produced in the lungs and lower respiratory tract.)",reply_markup=markup)
             bot.register_next_step_handler(msg,process_phlegm_step)
             return
         else:
@@ -488,8 +557,8 @@ def process_chillness_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
-            msg = bot.send_message(chat_id,"Do you feel succumbed in chest?",reply_markup=markup)
+            markup.add('Yes', 'Clear', 'No', 'Back')
+            msg = bot.send_message(chat_id,"Do you feel pressure in chest?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_chestPressure_step)
     except Exception as e:
         bot.send_message(chat_id, """Ooops, Backend error!\
@@ -503,11 +572,14 @@ def process_chestPressure_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
-            msg = bot.send_message(chat_id, 'Do you feel chillness?',reply_markup=markup)
+            markup.add('Yes', 'Clear', 'No', 'Back')
+            msg = bot.send_message(chat_id,"Do you feel chillness?\
+                                   \
+                                       \
+(A sensation of coldness, often accompanied by shivering and pallor of the skin.)",reply_markup=markup)
             bot.register_next_step_handler(msg,process_chillness_step)
             return
         else:
@@ -518,8 +590,9 @@ def process_chestPressure_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
-            msg = bot.send_message(chat_id,"Do you feel congestion?",reply_markup=markup)
+            markup.add('Yes', 'Clear', 'No', 'Back')
+            msg = bot.send_message(chat_id,"Do you feel congestion?\
+                                   (Nasal passages swollen with excess fluid and mucus, may be triggered by infection, tobacco smoke or perfume.)",reply_markup=markup)
             bot.register_next_step_handler(msg,process_congestion_step)
     except Exception as e:
         bot.send_message(chat_id, """Ooops, Backend error!\
@@ -533,11 +606,11 @@ def process_congestion_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
-            msg = bot.send_message(chat_id, 'Do you feel succumbed in chest?',reply_markup=markup)
+            markup.add('Yes', 'Clear', 'No', 'Back')
+            msg = bot.send_message(chat_id, 'Do you feel pressure in chest?',reply_markup=markup)
             bot.register_next_step_handler(msg,process_chestPressure_step)
             return
         else:
@@ -548,7 +621,7 @@ def process_congestion_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id,"Do you have muscle pain?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_muscleAche_step)
     except Exception as e:
@@ -563,11 +636,12 @@ def process_muscleAche_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
-            msg = bot.send_message(chat_id, 'Do you feel congestion?',reply_markup=markup)
+            markup.add('Yes', 'Clear', 'No', 'Back')
+            msg = bot.send_message(chat_id, 'Do you feel congestion?\
+                                   (Nasal passages swollen with excess fluid and mucus, may be triggered by infection, tobacco smoke or perfume.)',reply_markup=markup)
             bot.register_next_step_handler(msg,process_congestion_step)
             return
         else:
@@ -578,7 +652,7 @@ def process_muscleAche_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id,"Do you have runny or stuffed nose?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_runnyStuffnose_step)
     except  Exception as e:
@@ -593,10 +667,10 @@ def process_runnyStuffnose_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id, 'Do you have muscle pain?',reply_markup=markup)
             bot.register_next_step_handler(msg,process_muscleAche_step)
             return
@@ -608,8 +682,11 @@ def process_runnyStuffnose_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
-            msg = bot.send_message(chat_id,"Do you feel fatigue?",reply_markup=markup)
+            markup.add('Yes', 'Clear', 'No', 'Back')
+            msg = bot.send_message(chat_id,"Do you feel fatigue?\
+                                   \
+                                       \
+(Feeling overtired, with low energy and a strong desire to sleep that interferes with normal daily activities.)",reply_markup=markup)
             bot.register_next_step_handler(msg,process_fatigue_step)
     except  Exception as e:
         bot.send_message(chat_id, """Ooops, Backend error!\
@@ -623,10 +700,10 @@ def process_fatigue_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id, 'Do you have runny or stuffed nose?',reply_markup=markup)
             bot.register_next_step_handler(msg,process_runnyStuffnose_step)
             return
@@ -638,7 +715,7 @@ def process_fatigue_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id,"Do you sneeze often?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_sneezing_step)
     except  Exception as e:
@@ -653,11 +730,14 @@ def process_sneezing_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
-            msg = bot.send_message(chat_id, 'Do you feel fatigue?',reply_markup=markup)
+            markup.add('Yes', 'Clear', 'No', 'Back')
+            msg = bot.send_message(chat_id,"Do you feel fatigue?\
+                                   \
+                                       \
+(Feeling overtired, with low energy and a strong desire to sleep that interferes with normal daily activities.)",reply_markup=markup)
             bot.register_next_step_handler(msg,process_fatigue_step)
             return
         else:
@@ -668,7 +748,7 @@ def process_sneezing_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id,"Do you have sore throat?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_soreThroat_step)
     except  Exception as e:
@@ -683,10 +763,10 @@ def process_soreThroat_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id, 'Do you sneeze often?',reply_markup=markup)
             bot.register_next_step_handler(msg,process_sneezing_step)
             return
@@ -698,7 +778,7 @@ def process_soreThroat_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id,"Do you have difficulty in breathing?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_breathingProb_step)
     except  Exception as e:
@@ -713,10 +793,10 @@ def process_breathingProb_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id, 'Do you have sore throat?',reply_markup=markup)
             bot.register_next_step_handler(msg,process_soreThroat_step)
             return
@@ -728,7 +808,7 @@ def process_breathingProb_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id,"Do you feel tasteless when having meal?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_tasteProb_step)
     except  Exception as e:
@@ -743,10 +823,10 @@ def process_tasteProb_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id, 'Do you have difficulty in breathing?',reply_markup=markup)
             bot.register_next_step_handler(msg,process_breathingProb_step)
             return
@@ -758,7 +838,7 @@ def process_tasteProb_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id,"Do you feel Loss of smell?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_smellProb_step)
     except  Exception as e:
@@ -773,10 +853,10 @@ def process_smellProb_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id, 'Do you feel tasteless when having meal?',reply_markup=markup)
             bot.register_next_step_handler(msg,process_tasteProb_step)
             return
@@ -788,7 +868,7 @@ def process_smellProb_step(message):
             else:
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id,"Do you suffer difficuly in speech?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_speechProb_step)
     except  Exception as e:
@@ -803,10 +883,10 @@ def process_speechProb_step(message):
             restart(chat_id)
             time.sleep(1)
             welcome(message)
-        elif message.text == u'retry' or  message.text == u'Retry':
+        elif message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id, 'Do you feel Loss of smell?',reply_markup=markup)
             bot.register_next_step_handler(msg,process_smellProb_step)
             return
@@ -816,7 +896,7 @@ def process_speechProb_step(message):
             if (speechProb == u'Yes') or (speechProb == u'No'):
                 user.speechProb = speechProb
                 markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-                markup.add('Retry','No')
+                markup.add('Back','No')
                 msg = bot.send_message(chat_id, 'Do you want to change your answer for previous question?',reply_markup=markup)
                 bot.register_next_step_handler(msg,last)
             else:
@@ -831,25 +911,28 @@ Our team will respond to you.""")
 def last(message):
     try:
         chat_id = message.chat.id
-        if message.text == u'retry' or  message.text == u'Retry':
+        if message.text == u'Back':
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
-            markup.add('Yes', 'Clear', 'No', 'Retry')
+            markup.add('Yes', 'Clear', 'No', 'Back')
             msg = bot.send_message(chat_id, 'Do you suffer difficuly in speech?',reply_markup=markup)
             bot.register_next_step_handler(msg,process_speechProb_step)
             return
         else:
             msg = bot.send_message(chat_id,"Predicting=======>")
             user = user_dict[chat_id]
+            global lis 
             lis = [user.age, user.Btemp, user.outside, user.cough, user.phlegm, user.chillness, user.chestPressure, user.congestion, user.muscleAche, user.runnyStuffnose, user.fatigue, user.sneezing, user.soreThroat, user.breathingProb, user.tasteProb, user.smellProb, user.speechProb]
-            print(lis)
             user.output = lis
+            print(lis)
             #bot.register_next_step_handler(msg,process_final_step)
             process_final_step(message)
     except Exception as e:
         bot.send_message(chat_id, """Ooops, Backend error!\
 Please write to blueoceanai.tech@gmail.com
 Our team will respond to you.""")
+
+
 
 def predict(X,P_value_cold,P_value_flu,P_value_fever,P_value_covid,P_value_normal):
     temp = []
@@ -895,32 +978,122 @@ def conv(val):
             out.append(sr) 
     return out
 
+def prd(val):
+     if li[0] == 1: #cold
+         return "cold"
+     elif li[1] == 1: #flu
+         return "flu"
+     elif li[2] == 1: #fever
+         return "fever"
+     elif li[3] == 1: #covid-19
+         return "covid-19"
+     elif li[4] == 1: #normal
+         return "normal"
+
+
+def append_list_as_row(file_name, list_of_elem):
+    with open(file_name, 'a+', newline='') as write_obj:
+        csv_writer = writer(write_obj)
+        csv_writer.writerow(list_of_elem)
+
+
+
 def process_final_step(message):
     chat_id = message.chat.id
     user = user_dict[chat_id]
     l= conv(user.output)
+    global li
     li = predict(l,5,7,3,6,5) 
+    
+ 
+    x = datetime.datetime.now().strftime("%x")
+    y = datetime.datetime.now().strftime("%X")
+    
+    if (li[0] == 1) or (li[1] == 1) or (li[2] == 1) or (li[4] == 1):
+        dic['name'] = user.name
+        dic['place'] = user.place
+        dic['age'] = user.age
+        dic['body temperature'] =  user.Btemp
+        dic['outside'] = user.outside
+        dic['cough'] = user.cough
+        dic['phlegm'] = user.phlegm
+        dic['chillness'] = user.chillness
+        dic['chest pressure'] = user.chestPressure
+        dic['congestion'] = user.congestion
+        dic['muscle ache'] = user.muscleAche
+        dic['runny/stuff nose'] = user.runnyStuffnose
+        dic['fatigue'] = user.fatigue
+        dic['sneezing'] = user.sneezing
+        dic['sorethroat'] = user.soreThroat
+        dic['breathing problem'] = user.breathingProb
+        dic['taste problem'] = user.tasteProb
+        dic['smell problem'] = user.smellProb
+        dic['speech problem'] = user.speechProb
+        dic['predcition'] = prd(li)
+        dic['time'] = y
+        dic['date'] = x
+        
+        key = list(dic.keys())
+        value = list(dic.values())
+        df = pd.DataFrame(np.column_stack(value),columns = key)
+        print(df)
+        if os.path.exists("data/C_Fl_F_N.csv"):
+            append_list_as_row('data/C_Fl_F_N.csv', value)
+        else:
+            df.to_csv(r'data/C_Fl_F_N.csv', index = False)
+    elif(li[3] == 1):
+        dic['name'] = user.name
+        dic['place'] = user.place
+        dic['age'] = user.age
+        dic['body temperature'] =  user.Btemp
+        dic['outside'] = user.outside
+        dic['cough'] = user.cough
+        dic['phlegm'] = user.phlegm
+        dic['chillness'] = user.chillness
+        dic['chest pressure'] = user.chestPressure
+        dic['congestion'] = user.congestion
+        dic['muscle ache'] = user.muscleAche
+        dic['runny/stuff nose'] = user.runnyStuffnose
+        dic['fatigue'] = user.fatigue
+        dic['sneezing'] = user.sneezing
+        dic['sorethroat'] = user.soreThroat
+        dic['breathing problem'] = user.breathingProb
+        dic['taste problem'] = user.tasteProb
+        dic['smell problem'] = user.smellProb
+        dic['speech problem'] = user.speechProb
+        dic['predcition'] = prd(li)
+        dic['time'] = str(y)
+        dic['date'] = str(x)
+        key = list(dic.keys())
+        value = list(dic.values())
+        df = pd.DataFrame(np.column_stack(value),columns = key)
+        print(df)
+        if os.path.exists("data/Covid19.csv"):
+            append_list_as_row('data/Covid19.csv', value)
+        else:
+            df.to_csv(r'data/Covid19.csv', index = False)
+    
     if li[0] == 1: #cold
         bot.send_message(chat_id, "Our model predicted you may have 'Cold'")
-        bot.send_message(chat_id,"Most people recover on their own within two weeks. If you Not recover please visit nearby doctor or contact (India)corona-virus help line: +91-11-23978046, or 1075 (toll free")
+        bot.send_message(chat_id,"Most people recover on their own within two weeks. If you Not recover please visit a nearby doctor or contact (India)corona-virus helpline: +91-11-23978046, or 1075 (toll-free)!")
         time.sleep(1)
-        bot.send_message(chat_id, "Dont forget the safty protocols!")
+        bot.send_message(chat_id, "Don't forget the safety protocols!")
         time.sleep(1)
         bot.send_message(chat_id, "1) Clean your hands often. Use soap and water, or an alcohol-based hand rub.")
         time.sleep(0.7)
         bot.send_message(chat_id, "2) Maintain a safe distance from anyone who is coughing or sneezing.")
         time.sleep(0.7)
-        bot.send_message(chat_id, "3) Wear a mask when physical distancing is not possible and don’t touch your eyes, nose or mouth..")
+        bot.send_message(chat_id, "3) Wear a mask when physical distancing is not possible and don’t touch your eyes, nose, or mouth...")
         time.sleep(0.7)
         bot.send_message(chat_id, "4) Cover your nose and mouth with your bent elbow or a tissue when you cough or sneeze. Stay home if you feel unwell.")
         time.sleep(0.7)
-        bot.send_message(chat_id, """5) If you have a fever, cough and difficulty breathing, seek medical attention.
-Calling in advance allows your healthcare provider to quickly direct you to the right health facility. This protects you, and prevents the spread of viruses and other infections.""")
+        bot.send_message(chat_id, """5) If you have a fever, cough, and difficulty breathing, seek medical attention.
+Calling in advance allows your healthcare provider to quickly direct you to the right health facility. This protects you and prevents the spread of viruses and other infections.""")
         time.sleep(0.7)
-        bot.send_message(chat_id, "Protect yourself and others around you by knowing the facts and taking appropriate precautions. Follow advice provided by your local health authority")
+        bot.send_message(chat_id, "Protect yourself and others around you by knowing the facts and taking appropriate precautions. Follow the advice provided by your local health authority.")
         time.sleep(0.7)
         bot.send_message(chat_id, """\
-Masks can help prevent the spread of the virus from the person wearing the mask to others. Masks alone do not protect against COVID-19, and should be combined with physical distancing and hand hygiene. Follow the advice provided by your local health authority.""")
+Masks can help prevent the spread of the virus from the person wearing the mask to others. Masks alone do not protect against COVID-19 and should be combined with physical distancing and hand hygiene. Follow the advice provided by your local health authority""")
         time.sleep(0.7)
         bot.send_message(chat_id, "Should not use elbow for coughing 😄")
         time.sleep(1)
@@ -932,25 +1105,25 @@ Masks can help prevent the spread of the virus from the person wearing the mask 
         
     elif li[1] == 1: #flu
         bot.send_message(chat_id, "Our model predicted you may have 'Flu'")
-        bot.send_message(chat_id,"Most people recover on their own within two weeks. If you Not recover please visit nearby doctor or contact (India)corona-virus help line: +91-11-23978046, or 1075 (toll free")
+        bot.send_message(chat_id,"Most people recover on their own within two weeks. If you Not recover please visit a nearby doctor or contact (India)corona-virus helpline: +91-11-23978046, or 1075 (toll-free)")
         time.sleep(1)
-        bot.send_message(chat_id, "Dont forget the safty protocols!")
+        bot.send_message(chat_id, "Don't forget the safety protocols!")
         time.sleep(1)
         bot.send_message(chat_id, "1) Clean your hands often. Use soap and water, or an alcohol-based hand rub.")
         time.sleep(0.7)
         bot.send_message(chat_id, "2) Maintain a safe distance from anyone who is coughing or sneezing.")
         time.sleep(0.7)
-        bot.send_message(chat_id, "3) Wear a mask when physical distancing is not possible and don’t touch your eyes, nose or mouth..")
+        bot.send_message(chat_id, "3) Wear a mask when physical distancing is not possible and don’t touch your eyes, nose, or mouth...")
         time.sleep(0.7)
         bot.send_message(chat_id, "4) Cover your nose and mouth with your bent elbow or a tissue when you cough or sneeze. Stay home if you feel unwell.")
         time.sleep(0.7)
-        bot.send_message(chat_id, """5) If you have a fever, cough and difficulty breathing, seek medical attention.
-Calling in advance allows your healthcare provider to quickly direct you to the right health facility. This protects you, and prevents the spread of viruses and other infections.""")
+        bot.send_message(chat_id, """5) If you have a fever, cough, and difficulty breathing, seek medical attention.
+Calling in advance allows your healthcare provider to quickly direct you to the right health facility. This protects you and prevents the spread of viruses and other infections.""")
         time.sleep(0.7)
-        bot.send_message(chat_id, "Protect yourself and others around you by knowing the facts and taking appropriate precautions. Follow advice provided by your local health authority")
+        bot.send_message(chat_id, "Protect yourself and others around you by knowing the facts and taking appropriate precautions. Follow the advice provided by your local health authority.")
         time.sleep(0.7)
         bot.send_message(chat_id, """\
-Masks can help prevent the spread of the virus from the person wearing the mask to others. Masks alone do not protect against COVID-19, and should be combined with physical distancing and hand hygiene. Follow the advice provided by your local health authority.""")
+Masks can help prevent the spread of the virus from the person wearing the mask to others. Masks alone do not protect against COVID-19 and should be combined with physical distancing and hand hygiene. Follow the advice provided by your local health authority""")
         time.sleep(0.7)
         bot.send_message(chat_id, "Should not use elbow for coughing 😄")
         time.sleep(1)
@@ -962,23 +1135,23 @@ Masks can help prevent the spread of the virus from the person wearing the mask 
         
     elif li[2] == 1: #fever
         bot.send_message(chat_id, "Our model predicted you may have 'Fever'")
-        bot.send_message(chat_id,"Most people recover on their own within hours or 1 day. If you Not recover please visit nearby doctor or contact (India)corona-virus help line: +91-11-23978046, or 1075 (toll free")
+        bot.send_message(chat_id,"Most people recover on their own within hours or 1 day. If you Not recover please visit a nearby doctor or contact (India)corona-virus helpline: +91-11-23978046, or 1075 (toll-free)")
         time.sleep(1)
         bot.send_message(chat_id, "1) Clean your hands often. Use soap and water, or an alcohol-based hand rub.")
         time.sleep(0.7)
         bot.send_message(chat_id, "2) Maintain a safe distance from anyone who is coughing or sneezing.")
         time.sleep(0.7)
-        bot.send_message(chat_id, "3) Wear a mask when physical distancing is not possible and don’t touch your eyes, nose or mouth..")
+        bot.send_message(chat_id, "3) Wear a mask when physical distancing is not possible and don’t touch your eyes, nose, or mouth...")
         time.sleep(0.7)
         bot.send_message(chat_id, "4) Cover your nose and mouth with your bent elbow or a tissue when you cough or sneeze. Stay home if you feel unwell.")
         time.sleep(0.7)
-        bot.send_message(chat_id, """5) If you have a fever, cough and difficulty breathing, seek medical attention.
-Calling in advance allows your healthcare provider to quickly direct you to the right health facility. This protects you, and prevents the spread of viruses and other infections.""")
+        bot.send_message(chat_id, """5) If you have a fever, cough, and difficulty breathing, seek medical attention.
+Calling in advance allows your healthcare provider to quickly direct you to the right health facility. This protects you and prevents the spread of viruses and other infections.""")
         time.sleep(0.7)
-        bot.send_message(chat_id, "Protect yourself and others around you by knowing the facts and taking appropriate precautions. Follow advice provided by your local health authority")
+        bot.send_message(chat_id, "Protect yourself and others around you by knowing the facts and taking appropriate precautions. Follow the advice provided by your local health authority.")
         time.sleep(0.7)
         bot.send_message(chat_id, """\
-Masks can help prevent the spread of the virus from the person wearing the mask to others. Masks alone do not protect against COVID-19, and should be combined with physical distancing and hand hygiene. Follow the advice provided by your local health authority.""")
+Masks can help prevent the spread of the virus from the person wearing the mask to others. Masks alone do not protect against COVID-19 and should be combined with physical distancing and hand hygiene. Follow the advice provided by your local health authority""")
         time.sleep(0.7)
         bot.send_message(chat_id, "Should not use elbow for coughing 😄")
         time.sleep(1)
@@ -990,25 +1163,25 @@ Masks can help prevent the spread of the virus from the person wearing the mask 
         
     elif li[3] == 1: #covid-19
         bot.send_message(chat_id, "Our model predicted you may have 'Covid 19'.")
-        bot.send_message(chat_id,"Do not panic as most people recover. Please seek medical assistance if your symptoms are getting worse! or contact (India)corona-virus help line: +91-11-23978046, or 1075 (toll free")
+        bot.send_message(chat_id,"Do not panic as most people recover. Please seek medical assistance if your symptoms are getting worse! or contact (India)corona-virus helpline: +91-11-23978046, or 1075 (toll-free)")
         time.sleep(1)
-        bot.send_message(chat_id, "Dont forget the safty protocols!")
+        bot.send_message(chat_id, "Don't forget the safety protocols!")
         time.sleep(1)
         bot.send_message(chat_id, "1) Clean your hands often. Use soap and water, or an alcohol-based hand rub.")
         time.sleep(0.7)
         bot.send_message(chat_id, "2) Maintain a safe distance from anyone who is coughing or sneezing.")
         time.sleep(0.7)
-        bot.send_message(chat_id, "3) Wear a mask when physical distancing is not possible and don’t touch your eyes, nose or mouth..")
+        bot.send_message(chat_id, "3) Wear a mask when physical distancing is not possible and don’t touch your eyes, nose, or mouth...")
         time.sleep(0.7)
         bot.send_message(chat_id, "4) Cover your nose and mouth with your bent elbow or a tissue when you cough or sneeze. Stay home if you feel unwell.")
         time.sleep(0.7)
-        bot.send_message(chat_id, """5) If you have a fever, cough and difficulty breathing, seek medical attention.
-Calling in advance allows your healthcare provider to quickly direct you to the right health facility. This protects you, and prevents the spread of viruses and other infections.""")
+        bot.send_message(chat_id, """5) If you have a fever, cough, and difficulty breathing, seek medical attention.
+Calling in advance allows your healthcare provider to quickly direct you to the right health facility. This protects you and prevents the spread of viruses and other infections.""")
         time.sleep(0.7)
-        bot.send_message(chat_id, "Protect yourself and others around you by knowing the facts and taking appropriate precautions. Follow advice provided by your local health authority")
+        bot.send_message(chat_id, "Protect yourself and others around you by knowing the facts and taking appropriate precautions. Follow the advice provided by your local health authority.")
         time.sleep(0.7)
         bot.send_message(chat_id, """\
-Masks can help prevent the spread of the virus from the person wearing the mask to others. Masks alone do not protect against COVID-19, and should be combined with physical distancing and hand hygiene. Follow the advice provided by your local health authority.""")
+Masks can help prevent the spread of the virus from the person wearing the mask to others. Masks alone do not protect against COVID-19 and should be combined with physical distancing and hand hygiene. Follow the advice provided by your local health authority""")
         time.sleep(0.7)
         bot.send_message(chat_id, "Should not use elbow for coughing 😄")
         time.sleep(1)
@@ -1022,23 +1195,23 @@ Masks can help prevent the spread of the virus from the person wearing the mask 
         bot.send_message(chat_id, "Our model predicted that you are 'Normal'")
         time.sleep(1)
         bot.send_message(chat_id, "😎")
-        bot.send_message(chat_id, "Have fun but dont forget the safty protocols!")
+        bot.send_message(chat_id, "Have fun but don't forget the safety protocols!")
         time.sleep(1)
         bot.send_message(chat_id, "1) Clean your hands often. Use soap and water, or an alcohol-based hand rub.")
         time.sleep(0.7)
         bot.send_message(chat_id, "2) Maintain a safe distance from anyone who is coughing or sneezing.")
         time.sleep(0.7)
-        bot.send_message(chat_id, "3) Wear a mask when physical distancing is not possible and don’t touch your eyes, nose or mouth..")
+        bot.send_message(chat_id, "3) Wear a mask when physical distancing is not possible and don’t touch your eyes, nose, or mouth...")
         time.sleep(0.7)
         bot.send_message(chat_id, "4) Cover your nose and mouth with your bent elbow or a tissue when you cough or sneeze. Stay home if you feel unwell.")
         time.sleep(0.7)
-        bot.send_message(chat_id, """5) If you have a fever, cough and difficulty breathing, seek medical attention.
-Calling in advance allows your healthcare provider to quickly direct you to the right health facility. This protects you, and prevents the spread of viruses and other infections.""")
+        bot.send_message(chat_id, """5) If you have a fever, cough, and difficulty breathing, seek medical attention.
+Calling in advance allows your healthcare provider to quickly direct you to the right health facility. This protects you and prevents the spread of viruses and other infections.""")
         time.sleep(0.7)
-        bot.send_message(chat_id, "Protect yourself and others around you by knowing the facts and taking appropriate precautions. Follow advice provided by your local health authority")
+        bot.send_message(chat_id, "Protect yourself and others around you by knowing the facts and taking appropriate precautions. Follow the advice provided by your local health authority.")
         time.sleep(0.7)
         bot.send_message(chat_id, """\
-Masks can help prevent the spread of the virus from the person wearing the mask to others. Masks alone do not protect against COVID-19, and should be combined with physical distancing and hand hygiene. Follow the advice provided by your local health authority.""")
+Masks can help prevent the spread of the virus from the person wearing the mask to others. Masks alone do not protect against COVID-19 and should be combined with physical distancing and hand hygiene. Follow the advice provided by your local health authority""")
         time.sleep(0.7)
         bot.send_message(chat_id, "Should not use elbow for coughing 😄")
         time.sleep(1)
@@ -1048,9 +1221,7 @@ Masks can help prevent the spread of the virus from the person wearing the mask 
         msg = bot.send_message(chat_id, "Click to start again! or text /start",reply_markup=markup)
         bot.register_next_step_handler(msg,welcome)
 
-    
-    
- 
+
 # Enable saving next step handlers to file "./.handlers-saves/step.save".
 # Delay=2 means that after any change in next step handlers (e.g. calling register_next_step_handler())
 # saving will hapen after delay 2 seconds.
