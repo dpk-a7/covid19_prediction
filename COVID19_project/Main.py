@@ -74,7 +74,7 @@ class User:
 
 #handle "/start" and "/help" command
 @bot.message_handler(commands = ['start'])
-def welcome(message):
+def welcome(message: str) -> "welcome note":
     chat_id = message.chat.id
     bot.send_message(chat_id,"""\
           *Important Note*
@@ -136,7 +136,8 @@ def greet(message):
             bot.register_next_step_handler(msg,greet)
             return
         else:
-            global user           
+            global user  
+            user = User()
             user.name = name
             bot.send_message(chat_id, 'Nice to meet you ' + user.name)
             #msg = bot.send_message(chat_id, 'To start your test type /test!')
@@ -869,7 +870,7 @@ def process_smellProb_step(message):
                 raise Exception
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
             markup.add('Yes', 'Clear', 'No', 'Back')
-            msg = bot.send_message(chat_id,"Do you suffer difficuly in speech?",reply_markup=markup)
+            msg = bot.send_message(chat_id,"Do you suffer difficulty in speech?",reply_markup=markup)
             bot.register_next_step_handler(msg,process_speechProb_step)
     except  Exception as e:
         bot.send_message(chat_id, """Ooops, Backend error!\
@@ -915,7 +916,7 @@ def last(message):
             bot.send_message(chat_id,'Okay no problem 😄')
             markup = types.ReplyKeyboardMarkup(one_time_keyboard = True)
             markup.add('Yes', 'Clear', 'No', 'Back')
-            msg = bot.send_message(chat_id, 'Do you suffer difficuly in speech?',reply_markup=markup)
+            msg = bot.send_message(chat_id, 'Do you suffer difficulty in speech?',reply_markup=markup)
             bot.register_next_step_handler(msg,process_speechProb_step)
             return
         else:
@@ -924,7 +925,6 @@ def last(message):
             global lis 
             lis = [user.age, user.Btemp, user.outside, user.cough, user.phlegm, user.chillness, user.chestPressure, user.congestion, user.muscleAche, user.runnyStuffnose, user.fatigue, user.sneezing, user.soreThroat, user.breathingProb, user.tasteProb, user.smellProb, user.speechProb]
             user.output = lis
-            print(lis)
             #bot.register_next_step_handler(msg,process_final_step)
             process_final_step(message)
     except Exception as e:
@@ -1036,7 +1036,6 @@ def process_final_step(message):
         key = list(dic.keys())
         value = list(dic.values())
         df = pd.DataFrame(np.column_stack(value),columns = key)
-        print(df)
         if os.path.exists("data/C_Fl_F_N.csv"):
             append_list_as_row('data/C_Fl_F_N.csv', value)
         else:
@@ -1067,7 +1066,6 @@ def process_final_step(message):
         key = list(dic.keys())
         value = list(dic.values())
         df = pd.DataFrame(np.column_stack(value),columns = key)
-        print(df)
         if os.path.exists("data/Covid19.csv"):
             append_list_as_row('data/Covid19.csv', value)
         else:
@@ -1231,7 +1229,16 @@ bot.enable_save_next_step_handlers(delay=2)
 # WARNING It will work only if enable_save_next_step_handlers was called!
 bot.load_next_step_handlers()
 
-bot.polling()
+def startbot():
+    try:
+        bot.polling()
+    except  Exception:
+        time.sleep(15)
+        bot.polling()
+
+if __name__ == '__main__':
+    startbot()
+    
     
 if os.path.exists(".handler-saves/step.save"):
   os.remove(".handler-saves/step.save")
