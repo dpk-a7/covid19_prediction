@@ -9,6 +9,10 @@
 ## To run the project in terminal run this command:<br>
 >* python Main.py startbot
 
+
+
+# Software used
 <img src="Visuals/Software.png"
      alt="Markdown Monster icon"
      style="float: left; margin-right: 10px;" />
+
