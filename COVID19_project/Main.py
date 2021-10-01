@@ -18,7 +18,7 @@ from csv import writer
 
 dic = {}
 
-chat_token = "1427454496:AAFCCGEmBayVKwmn2jWHKGIAd2e9ZpkerBA"
+chat_token = "<Enter Telegram Bot Token >"
 
 bot = telebot.TeleBot(chat_token)
 
